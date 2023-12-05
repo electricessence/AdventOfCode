@@ -24,6 +24,7 @@ public class Day01Tests
 		zoneight234
 		7pqrstsixteen
 		""")]
+	[InlineData(91, "ninesevensrzxkzpmgz8kcjxsbdftwoner")]
 	public void CalculateSumOfCalibrationValues_ShouldReturnCorrectSum(int expectedSum, string lines)
 		=> Day01.CalculateSumOfCalibrationValues(lines)
 			.Should()

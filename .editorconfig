@@ -223,6 +223,9 @@ dotnet_naming_style.begins_with_i.capitalization = pascal_case
 # IDE0057: Use range operator
 dotnet_diagnostic.IDE0057.severity = silent
 
+# RCS1123: Add parenthesis.
+dotnet_diagnostic.RCS1123.severity = silent
+
 dotnet_diagnostic.CS1591.severity = suggestion
 csharp_style_prefer_method_group_conversion = true:silent
 csharp_style_prefer_top_level_statements = true:silent
