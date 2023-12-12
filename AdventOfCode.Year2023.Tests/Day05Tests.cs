@@ -4,8 +4,7 @@ namespace AdventOfCode.Year2023.Tests;
 
 public class Day05Tests
 {
-	[Theory]
-	[InlineData(35,
+	const string AlmanacData =
 		"""
         seeds: 79 14 55 13
 
@@ -40,10 +39,21 @@ public class Day05Tests
         humidity-to-location map:
         60 56 37
         56 93 4
-        """)]
-	public void CalculateLowestLocationNumber_ShouldReturnCorrectValue(int expectedLowestLocation, string almanacData)
+        """;
+
+	[Theory]
+	[InlineData(35, AlmanacData)]
+	public void CalculateLowestLocationNumber_ShouldReturnCorrectValue(uint expectedLowestLocation, string almanacData)
 	{
 		using var reader = new StringReader(almanacData);
 		Day05.CalculateLowestLocationNumber(reader).Should().Be(expectedLowestLocation);
+	}
+
+	[Theory]
+	[InlineData(46, AlmanacData)]
+	public void CalculateLowestLocationNumberFromSeedRanges_ShouldReturnCorrectValue(uint expectedLowestLocation, string almanacData)
+	{
+		using var reader = new StringReader(almanacData);
+		Day05.CalculateLowestLocationNumberFromSeedRanges(reader).Should().Be(expectedLowestLocation);
 	}
 }

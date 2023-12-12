@@ -1,18 +1,20 @@
 ﻿using Open.Text;
+using System.Collections;
 using System.Collections.Immutable;
+using static AdventOfCode.Year2023.Day05;
 
 namespace AdventOfCode.Year2023;
 
 public static class Day05
 {
-	public readonly record struct Map(int DestinationStart, int SourceStart, int RangeLength)
+	public readonly record struct Map(uint DestinationStart, uint SourceStart, uint RangeLength)
 	{
-		public int DestinationEnd { get; } = DestinationStart + RangeLength;
-		public int SourceEnd { get; } = SourceStart + RangeLength;
+		public uint DestinationEnd { get; } = DestinationStart + RangeLength;
+		public uint SourceEnd { get; } = SourceStart + RangeLength;
 
-		public bool IsMapped(int source, out int destination)
+		public bool IsMapped(uint source, out uint destination)
 		{
-			destination = -1;
+			destination = 0;
 			if (source < SourceStart || source >= SourceEnd)
 				return false;
 
@@ -21,17 +23,30 @@ public static class Day05
 		}
 	}
 
+	public readonly record struct SeedRange(uint Start, uint Length) : IEnumerable<uint>
+	{
+		public uint End { get; } = Start + Length;
+
+		public IEnumerator<uint> GetEnumerator()
+		{
+			for (uint i = Start; i < End; i++)
+				yield return i;
+		}
+
+		IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+	}
+
 	public class MapLookup(IEnumerable<Map> maps)
 	{
 		private readonly Map[] _maps = maps.ToArray();
 
 		public static readonly MapLookup Empty = new(Enumerable.Empty<Map>());
 
-		public int GetMappedValue(int source)
+		public uint GetMappedValue(uint source)
 		{
 			foreach (var map in _maps)
 			{
-				if (map.IsMapped(source, out int destination))
+				if (map.IsMapped(source, out uint destination))
 					return destination;
 			}
 
@@ -41,7 +56,8 @@ public static class Day05
 
 	public class Almanac
 	{
-		public required ImmutableArray<int> Seeds { get; init; }
+		public required ImmutableArray<uint> Seeds { get; init; }
+		public required ImmutableArray<SeedRange> SeedRanges { get; init; }
 		public required MapLookup SeedToSoilMap { get; init; }
 		public required MapLookup SoilToFertilizerMap { get; init; }
 		public required MapLookup FertilizerToWaterMap { get; init; }
@@ -49,11 +65,22 @@ public static class Day05
 		public required MapLookup LightToTemperatureMap { get; init; }
 		public required MapLookup TemperatureToHumidityMap { get; init; }
 		public required MapLookup HumidityToLocationMap { get; init; }
+
+		public uint GetLocationNumber(uint seed)
+		{
+			uint soilNumber = SeedToSoilMap.GetMappedValue(seed);
+			uint fertilizerNumber = SoilToFertilizerMap.GetMappedValue(soilNumber);
+			uint waterNumber = FertilizerToWaterMap.GetMappedValue(fertilizerNumber);
+			uint lightNumber = WaterToLightMap.GetMappedValue(waterNumber);
+			uint tempNumber = LightToTemperatureMap.GetMappedValue(lightNumber);
+			uint humidityNumber = TemperatureToHumidityMap.GetMappedValue(tempNumber);
+			return HumidityToLocationMap.GetMappedValue(humidityNumber);
+		}
 	}
 
 	public static Almanac GetAlmanac(TextReader reader)
 	{
-		ImmutableArray<int> seeds = [];
+		ImmutableArray<uint> seeds = [];
 		MapLookup seedToSoilMap = MapLookup.Empty;
 		MapLookup soilToFertilizerMap = MapLookup.Empty;
 		MapLookup fertilizerToWaterMap = MapLookup.Empty;
@@ -67,9 +94,9 @@ public static class Day05
 		{
 			if (line.StartsWith("seeds:"))
 			{
-				seeds = line.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+				seeds = line.SplitAsSegments(' ', StringSplitOptions.RemoveEmptyEntries)
 					.Skip(1)
-					.Select(int.Parse)
+					.Select(s=> uint.Parse(s))
 					.ToImmutableArray();
 			}
 			else if (line.StartsWith("seed-to-soil map:"))
@@ -102,9 +129,18 @@ public static class Day05
 			}
 		}
 
+		int seedsLen = seeds.Length;
+		if(seedsLen % 2 == 1)
+			throw new Exception("Seeds must be even");
+
+		var seedRangesBuilder = ImmutableArray.CreateBuilder<SeedRange>(seedsLen / 2);
+		for (int i = 0; i < seedsLen; i += 2)
+			seedRangesBuilder.Add(new SeedRange(seeds[i], seeds[i + 1]));
+
 		return new Almanac
 		{
 			Seeds = seeds,
+			SeedRanges = seedRangesBuilder.DrainToImmutable(),
 			SeedToSoilMap = seedToSoilMap,
 			SoilToFertilizerMap = soilToFertilizerMap,
 			FertilizerToWaterMap = fertilizerToWaterMap,
@@ -115,25 +151,27 @@ public static class Day05
 		};
 	}
 
-	public static int CalculateLowestLocationNumber(TextReader reader)
+	public static uint CalculateLowestLocationNumber(TextReader reader)
+	{
+		var almanac = GetAlmanac(reader);
+		return almanac.Seeds.AsParallel().Min(almanac.GetLocationNumber);
+	}
+
+	public static uint CalculateLowestLocationNumberFromSeedRanges(TextReader reader)
 	{
 		var almanac = GetAlmanac(reader);
 
-		int lowestLocationNumber = int.MaxValue;
-		foreach (int seed in almanac.Seeds)
+		IEnumerable<uint> GetLocationNumberFromRanges(SeedRange seedRange)
 		{
-			int soilNumber = almanac.SeedToSoilMap.GetMappedValue(seed);
-			int fertilizerNumber = almanac.SoilToFertilizerMap.GetMappedValue(soilNumber);
-			int waterNumber = almanac.FertilizerToWaterMap.GetMappedValue(fertilizerNumber);
-			int lightNumber = almanac.WaterToLightMap.GetMappedValue(waterNumber);
-			int tempNumber = almanac.LightToTemperatureMap.GetMappedValue(lightNumber);
-			int humidityNumber = almanac.TemperatureToHumidityMap.GetMappedValue(tempNumber);
-			int locationNumber = almanac.HumidityToLocationMap.GetMappedValue(humidityNumber);
-			lowestLocationNumber = Math.Min(lowestLocationNumber, locationNumber);
+			foreach (uint seed in seedRange)
+			{
+				yield return almanac.GetLocationNumber(seed);
+			}
 		}
 
-		return lowestLocationNumber;
+		return almanac.SeedRanges.AsParallel().SelectMany(GetLocationNumberFromRanges).Min();
 	}
+
 
 	private static IEnumerable<Map> ReadMap(TextReader reader)
 	{
@@ -143,14 +181,14 @@ public static class Day05
 			if (string.IsNullOrWhiteSpace(line))
 				break;
 
-			int destinationStart = -1;
-			int sourceStart = -1;
-			int rangeLength = -1;
+			uint destinationStart = 0;
+			uint sourceStart = 0;
+			uint rangeLength = 0;
 
 			int i = 0;
 			foreach (var n in line.SplitAsMemory(' ', StringSplitOptions.RemoveEmptyEntries))
 			{
-				int value = int.Parse(n.Span);
+				uint value = uint.Parse(n.Span);
 				switch (i++)
 				{
 					case 0:
